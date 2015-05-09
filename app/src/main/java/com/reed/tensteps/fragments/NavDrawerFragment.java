@@ -8,7 +8,9 @@ import android.support.v4.app.Fragment;
 import android.preference.PreferenceManager;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
+import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.support.v7.widget.Toolbar;
@@ -16,6 +18,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -38,12 +41,13 @@ public class NavDrawerFragment extends Fragment {
     private ListView mDrawerListView;
     private Button mNewTask;
     private MyAdapter mAdapter;
-    private int mCurrentSelectedPosition = 0;
     private boolean mUserLearnedDrawer;
-    private ArrayList<PointPair> points;
+    private ArrayList<PointPair> mDeletionFlags;
+    private ArrayList<PointPair> mPoints;
 
     private static final String PREF_USER_LEARNED_DRAWER = "navigation_drawer_learned";
     private static final String POINT_KEY = "point_key:";
+    private static final String CHECKED_KEY = "checked_key:";
     private static final String TAG = "NavDrawerFragment";
 
     public ActionBarDrawerToggle mDrawerToggle;
@@ -70,11 +74,12 @@ public class NavDrawerFragment extends Fragment {
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getActivity());
 
         mUserLearnedDrawer = sp.getBoolean(PREF_USER_LEARNED_DRAWER, false);
-        points = new ArrayList<>();
+        mPoints = new ArrayList<>();
+        mDeletionFlags = new ArrayList<>();
         Map<String, ?> keys = sp.getAll();
         for(Map.Entry<String, ?> entry : keys.entrySet()) {
             if(entry.getKey().contains(POINT_KEY)) {
-                points.add(new PointPair(entry.getKey().replace(POINT_KEY, ""), (Integer)entry.getValue()));
+                mPoints.add(new PointPair(entry.getKey().replace(POINT_KEY, ""), (Integer) entry.getValue()));
             }
         }
     }
@@ -93,7 +98,7 @@ public class NavDrawerFragment extends Fragment {
             }
         });
         // Load the
-        mAdapter = new MyAdapter(v.getContext() ,points);
+        mAdapter = new MyAdapter(v.getContext() , mPoints);
         mDrawerListView.setAdapter(mAdapter);
         return v;
     }
@@ -125,6 +130,17 @@ public class NavDrawerFragment extends Fragment {
                 if(!isAdded()) {
                     return;
                 }
+                SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getActivity());
+                SharedPreferences.Editor editor = sp.edit();
+                // Delete all entries flagged for deletion
+                for(PointPair p : mDeletionFlags) {
+                    editor.remove(POINT_KEY + p.getDescription());
+                    editor.remove(CHECKED_KEY + p.getDescription());
+                    mAdapter.removeItem(p);
+                }
+                editor.apply();
+                mPoints.removeAll(mDeletionFlags);
+                mDeletionFlags = new ArrayList<>();
                 getActivity().invalidateOptionsMenu();
             }
 
@@ -140,6 +156,8 @@ public class NavDrawerFragment extends Fragment {
                     sp.edit().putBoolean(PREF_USER_LEARNED_DRAWER, true).apply();
                 }
                 getActivity().invalidateOptionsMenu();
+                mDrawerListView.bringToFront();
+                mDrawerListView.requestLayout();
             }
         };
         // If the user hasn't seen the drawer, then show it to them
@@ -187,7 +205,11 @@ public class NavDrawerFragment extends Fragment {
 
         public void addItem(PointPair item) {
             mData.add(item);
-            mCurrentSelectedPosition++;
+            notifyDataSetChanged();
+        }
+
+        public void removeItem(PointPair item) {
+            mData.remove(item);
             notifyDataSetChanged();
         }
 
@@ -228,7 +250,48 @@ public class NavDrawerFragment extends Fragment {
                 rowView = mLayoutInflater.inflate(R.layout.adapter_array_row, null);
                 TextView description = (TextView) rowView.findViewById(R.id.description);
                 TextView point_value = (TextView) rowView.findViewById(R.id.point_value);
-                CheckBox checkBox = (CheckBox) rowView.findViewById(R.id.checkbox);
+                final CheckBox checkBox = (CheckBox) rowView.findViewById(R.id.checkbox);
+                final ImageButton imageButton = (ImageButton) rowView.findViewById(R.id.row_delete);
+                rowView.setOnTouchListener(new View.OnTouchListener() {
+                    private final float displaceNeeded = 50f;
+                    private float displacement;
+                    private float lastX;
+
+                    @Override
+                    public boolean onTouch(View v, MotionEvent event) {
+                        switch (event.getAction()) {
+                            case MotionEvent.ACTION_DOWN :
+                                lastX = event.getX();
+                            case MotionEvent.ACTION_MOVE :
+                                displacement += event.getX() - lastX;
+                                lastX = event.getX();
+                                Log.d(TAG, "Displacement = " + displacement);
+                                break;
+                            case MotionEvent.ACTION_OUTSIDE:
+                            case MotionEvent.ACTION_CANCEL :
+                            case MotionEvent.ACTION_UP:
+                                if(displacement >= displaceNeeded) {
+                                    imageButton.setVisibility(View.VISIBLE);
+                                    imageButton.setOnClickListener(new View.OnClickListener() {
+                                        @Override
+                                        public void onClick(View v) {
+                                            mDeletionFlags.remove(mData.get(position));
+                                            imageButton.setVisibility(View.INVISIBLE);
+                                        }
+                                    });
+                                    mDeletionFlags.add(mData.get(position));
+                                    checkBox.setChecked(false);
+                                    Log.d(TAG, "Triggered delete reveal");
+                                }
+                                displacement = 0;
+                                break;
+                            default:
+                                Log.d(TAG, "Event Triggered! Event ID: " + event.getAction());
+                                break;
+                        }
+                        return true;
+                    }
+                });
                 description.setText(mData.get(position).getDescription());
                 if(mData.get(position).getValue() != 1) {
                     point_value.setText(mData.get(position).getValue() + " Points");
@@ -239,13 +302,18 @@ public class NavDrawerFragment extends Fragment {
                     @Override
                     public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                         NavActivity activity = (NavActivity) getActivity();
+                        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getActivity());
                         if(isChecked) {
+                            sp.edit().putBoolean(CHECKED_KEY + mData.get(position).getDescription(), true).apply();
                             activity.updatePoints(mData.get(position).getValue());
                         } else {
+                            sp.edit().putBoolean(CHECKED_KEY + mData.get(position).getDescription(), false).apply();
                             activity.updatePoints(-mData.get(position).getValue());
                         }
                     }
                 });
+                SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getActivity());
+                checkBox.setChecked(sp.getBoolean(CHECKED_KEY + mData.get(position).getDescription(), false));
             } else {
                 rowView = convertView;
             }
