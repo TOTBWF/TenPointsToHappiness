@@ -1,0 +1,31 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@color/white">
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="?android:attr/listPreferredItemHeight"
+        android:layout_alignParentBottom="true"
+        android:text="@string/new_task"
+        android:background="@color/Orange"
+        android:textColor="@color/white"
+        android:id="@+id/button_new_task" />
+    <ListView
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@+id/button_new_task"
+        android:layout_alignParentTop="true"
+        android:choiceMode="singleChoice"
+        android:divider="@color/light_gray"
+        android:dividerHeight="1px"
+        android:id="@+id/drawer_list_view"
+        android:background="@color/white"
+
+        tools:context="com.reed.tensteps.fragments.NavDrawerFragment"
+        android:paddingTop="5dp"/>
+
+
+</RelativeLayout>

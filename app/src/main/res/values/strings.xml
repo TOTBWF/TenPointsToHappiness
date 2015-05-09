@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">TenSteps</string>
+
+    <string name="title_activity_nav">NavActivity</string>
+    <string name="action_settings">Settings</string>
+
+    <string name="nav_drawer_open">Open Drawer</string>
+    <string name="nav_drawer_close">Close Drawer</string>
+
+    <string name="title_summary">Summary</string>
+
+    <string name="new_task">New Task</string>
+    <string name="dialog_new_task_title">Create a new task</string>
+    <string name="dialog_new_task_accept">Create Task</string>
+    <string name="dialog_new_task_cancel">Cancel</string>
+    <string name="dialog_task_description">Description</string>
+    <string name="dialog_task_points">Points</string>
+
+<!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+</resources>
